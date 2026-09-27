@@ -1,0 +1,12 @@
+﻿split,clase,etiqueta,videos
+excluded_ambiguous,Eliminacion,1,29
+excluded_ambiguous,Eliminado,0,1
+test,Eliminacion,1,87
+test,Eliminado,0,17
+test,Victoria,2,3
+train,Eliminacion,1,412
+train,Eliminado,0,69
+train,Victoria,2,15
+validation,Eliminacion,1,88
+validation,Eliminado,0,27
+validation,Victoria,2,3

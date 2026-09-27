@@ -1,0 +1,107 @@
+{
+  "seed": 42,
+  "requested_ratios": {
+    "train": 0.7,
+    "validation": 0.15,
+    "test": 0.15
+  },
+  "actual_counts": {
+    "train": 496,
+    "validation": 118,
+    "test": 107,
+    "excluded_ambiguous": 30
+  },
+  "supervised_counts": {
+    "train": 496,
+    "validation": 118,
+    "test": 107
+  },
+  "actual_ratios": {
+    "train": 0.687933,
+    "validation": 0.163662,
+    "test": 0.148405
+  },
+  "class_distribution": [
+    {
+      "split": "excluded_ambiguous",
+      "clase": "Eliminacion",
+      "etiqueta": 1,
+      "videos": 29
+    },
+    {
+      "split": "excluded_ambiguous",
+      "clase": "Eliminado",
+      "etiqueta": 0,
+      "videos": 1
+    },
+    {
+      "split": "test",
+      "clase": "Eliminacion",
+      "etiqueta": 1,
+      "videos": 87
+    },
+    {
+      "split": "test",
+      "clase": "Eliminado",
+      "etiqueta": 0,
+      "videos": 17
+    },
+    {
+      "split": "test",
+      "clase": "Victoria",
+      "etiqueta": 2,
+      "videos": 3
+    },
+    {
+      "split": "train",
+      "clase": "Eliminacion",
+      "etiqueta": 1,
+      "videos": 412
+    },
+    {
+      "split": "train",
+      "clase": "Eliminado",
+      "etiqueta": 0,
+      "videos": 69
+    },
+    {
+      "split": "train",
+      "clase": "Victoria",
+      "etiqueta": 2,
+      "videos": 15
+    },
+    {
+      "split": "validation",
+      "clase": "Eliminacion",
+      "etiqueta": 1,
+      "videos": 88
+    },
+    {
+      "split": "validation",
+      "clase": "Eliminado",
+      "etiqueta": 0,
+      "videos": 27
+    },
+    {
+      "split": "validation",
+      "clase": "Victoria",
+      "etiqueta": 2,
+      "videos": 3
+    }
+  ],
+  "duplicate_group_count": 674,
+  "duplicate_groups_with_multiple_ids": 72,
+  "mixed_label_groups": 2,
+  "initial_abajo_excluded": 26,
+  "total_excluded_from_supervision": 30,
+  "overlap": {
+    "train_validation": [],
+    "train_test": [],
+    "validation_test": []
+  },
+  "cross_split_duplicate_groups": [],
+  "augmentation_applied": false,
+  "scaler_fit_split": "train_only",
+  "test_used_for_selection": false,
+  "valid": true
+}

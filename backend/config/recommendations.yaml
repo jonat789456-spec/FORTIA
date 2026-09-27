@@ -1,0 +1,20 @@
+rules:
+  - code: LOW_HEALTH
+    title: Vida baja
+    priority: alta
+    source: health_shield
+    validity_seconds: 15
+    condition: health < 50
+  - code: LOW_SHIELD
+    title: Escudo bajo
+    priority: media
+    source: health_shield
+    validity_seconds: 15
+    condition: shield < 30
+  - code: NO_HEALING
+    title: Sin curación detectada
+    priority: media
+    source: inventory
+    validity_seconds: 30
+    condition: has_healing == false
+

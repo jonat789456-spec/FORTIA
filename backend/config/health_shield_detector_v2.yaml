@@ -1,0 +1,29 @@
+version: health-shield-detector-3.0.0
+description: Detector relativo de barras de vida y escudo con estabilización temporal.
+confidence_min: 0.55
+high_confidence_min: 0.80
+medium_confidence_min: 0.55
+history_size: 7
+current_max_age_seconds: 1.0
+estimated_max_age_seconds: 3.0
+last_stable_max_age_seconds: 8.0
+ttl_seconds: 8.0
+alert_persistence_readings: 3
+medium_alert_persistence_readings: 5
+medium_alert_persistence_seconds: 3.0
+health_low_threshold: 40
+health_recovery_threshold: 45
+health_critical_threshold: 20
+shield_low_threshold: 30
+shield_recovery_threshold: 35
+roi:
+  base_width: 489
+  base_height: 216
+  bar_left: 0.08
+  bar_right: 0.64
+  shield_y: [0.50, 0.68]
+  health_y: [0.68, 0.90]
+notes:
+  - Los umbrales se calibraron contra recortes reales de VIDA sin modificar los originales.
+  - La lectura numérica OCR queda como extensión futura porque el entorno base no incluye un motor OCR.
+  - El método actual es bar_color_geometry y no inventa valores cuando la evidencia es insuficiente.

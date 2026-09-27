@@ -1,0 +1,38 @@
+{
+  "df_videos_rows": 751,
+  "df_clasificacion_rows": 730,
+  "matched_by_filename": 730,
+  "missing_from_df_clasificacion": 21,
+  "missing_classification_by_df_videos_class": {
+    "Victoria": 21
+  },
+  "class_distribution_df_videos": {
+    "Eliminacion": 616,
+    "Eliminado": 114,
+    "Victoria": 21
+  },
+  "class_distribution_filename_rules": {
+    "Eliminacion": 590,
+    "Eliminado": 114,
+    "unknown": 26,
+    "Victoria": 21
+  },
+  "filename_rules": {
+    "eliminacion_o_variante": 590,
+    "eliminado_explicito": 114,
+    "abajo_ambiguo": 26,
+    "victoria_explicita": 21
+  },
+  "classification_pairs": {
+    "Eliminacion | Abajo": 26,
+    "Eliminacion | Eliminación": 542,
+    "Eliminacion | Eliminación doble": 43,
+    "Eliminacion | Eliminación múltiple": 2,
+    "Eliminacion | Eliminación triple": 3,
+    "Eliminado | Eliminado": 114
+  },
+  "mismatched_rows": 0,
+  "filename_mismatches_excluding_ambiguous": 0,
+  "recommended_authority": "df_videos.csv para las tres clases iniciales",
+  "reason": "Es la fuente completa de 751 videos y coincide con los DataFrames de modalidades; df_clasificacion.csv tiene 730 filas y no contiene los 21 videos Victoria."
+}

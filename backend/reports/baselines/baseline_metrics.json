@@ -1,0 +1,75 @@
+{
+  "image_size": [
+    16,
+    16
+  ],
+  "selection_split": "validation",
+  "test_used": false,
+  "modalities": {
+    "frames": {
+      "algorithm": "LogisticRegression",
+      "train_samples": 496,
+      "validation_samples": 118,
+      "validation": {
+        "samples": 118,
+        "f1_macro": 0.8635237416420596,
+        "balanced_accuracy": 0.88510101010101,
+        "log_loss": 0.3214922845363617
+      },
+      "artifact": "artifacts\\baselines\\frames_logistic.joblib",
+      "elapsed_sec": 35.968
+    },
+    "health": {
+      "algorithm": "LogisticRegression",
+      "train_samples": 496,
+      "validation_samples": 118,
+      "validation": {
+        "samples": 118,
+        "f1_macro": 0.7931634642160957,
+        "balanced_accuracy": 0.8699494949494949,
+        "log_loss": 0.12841123342514038
+      },
+      "artifact": "artifacts\\baselines\\health_logistic.joblib",
+      "elapsed_sec": 11.417
+    },
+    "inventory": {
+      "algorithm": "LogisticRegression",
+      "train_samples": 496,
+      "validation_samples": 118,
+      "validation": {
+        "samples": 118,
+        "f1_macro": 0.8538687759862081,
+        "balanced_accuracy": 0.8651795735129069,
+        "log_loss": 0.15870104730129242
+      },
+      "artifact": "artifacts\\baselines\\inventory_logistic.joblib",
+      "elapsed_sec": 12.609
+    },
+    "map": {
+      "algorithm": "LogisticRegression",
+      "train_samples": 496,
+      "validation_samples": 118,
+      "validation": {
+        "samples": 118,
+        "f1_macro": 0.9424889286958252,
+        "balanced_accuracy": 0.9924242424242425,
+        "log_loss": 0.14006081223487854
+      },
+      "artifact": "artifacts\\baselines\\map_logistic.joblib",
+      "elapsed_sec": 10.707
+    },
+    "audio": {
+      "algorithm": "LogisticRegression",
+      "train_samples": 496,
+      "validation_samples": 118,
+      "validation": {
+        "samples": 118,
+        "f1_macro": 0.8607549483272026,
+        "balanced_accuracy": 0.9440235690235691,
+        "log_loss": 0.400756299495697
+      },
+      "artifact": "artifacts\\baselines\\audio_logistic.joblib",
+      "elapsed_sec": 10.457
+    }
+  }
+}

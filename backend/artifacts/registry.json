@@ -1,0 +1,233 @@
+{
+  "registryVersion": "1.1",
+  "generatedBy": "build_registry.py",
+  "models": {
+    "frames": {
+      "version": "baseline-0.2.0",
+      "artifact": "artifacts/baselines/frames_logistic.joblib",
+      "status": "validated_on_validation",
+      "algorithm": "LogisticRegression",
+      "classes": [
+        0,
+        1,
+        2
+      ],
+      "input_shape": [
+        4608
+      ],
+      "input_features": 4608,
+      "image_size": [
+        16,
+        16
+      ],
+      "normalization": "RGB convert, resize 16x16, float32 / 255.0; aggregate mean/std except frames",
+      "scaler": null,
+      "selection_split": "validation",
+      "test_used_for_selection": false,
+      "validation": {
+        "samples": 118,
+        "f1_macro": 0.8635237416420596,
+        "balanced_accuracy": 0.88510101010101,
+        "log_loss": 0.3214922845363617
+      }
+    },
+    "health": {
+      "version": "baseline-0.2.0",
+      "artifact": "artifacts/baselines/health_logistic.joblib",
+      "status": "validated_on_validation",
+      "algorithm": "LogisticRegression",
+      "classes": [
+        0,
+        1,
+        2
+      ],
+      "input_shape": [
+        1536
+      ],
+      "input_features": 1536,
+      "image_size": [
+        16,
+        16
+      ],
+      "normalization": "RGB convert, resize 16x16, float32 / 255.0; aggregate mean/std except frames",
+      "scaler": null,
+      "selection_split": "validation",
+      "test_used_for_selection": false,
+      "validation": {
+        "samples": 118,
+        "f1_macro": 0.7931634642160957,
+        "balanced_accuracy": 0.8699494949494949,
+        "log_loss": 0.12841123342514038
+      }
+    },
+    "inventory": {
+      "version": "baseline-0.2.0",
+      "artifact": "artifacts/baselines/inventory_logistic.joblib",
+      "status": "validated_on_validation",
+      "algorithm": "LogisticRegression",
+      "classes": [
+        0,
+        1,
+        2
+      ],
+      "input_shape": [
+        1536
+      ],
+      "input_features": 1536,
+      "image_size": [
+        16,
+        16
+      ],
+      "normalization": "RGB convert, resize 16x16, float32 / 255.0; aggregate mean/std except frames",
+      "scaler": null,
+      "selection_split": "validation",
+      "test_used_for_selection": false,
+      "validation": {
+        "samples": 118,
+        "f1_macro": 0.8538687759862081,
+        "balanced_accuracy": 0.8651795735129069,
+        "log_loss": 0.15870104730129242
+      }
+    },
+    "map": {
+      "version": "baseline-0.2.0",
+      "artifact": "artifacts/baselines/map_logistic.joblib",
+      "status": "validated_on_validation",
+      "algorithm": "LogisticRegression",
+      "classes": [
+        0,
+        1,
+        2
+      ],
+      "input_shape": [
+        1536
+      ],
+      "input_features": 1536,
+      "image_size": [
+        16,
+        16
+      ],
+      "normalization": "RGB convert, resize 16x16, float32 / 255.0; aggregate mean/std except frames",
+      "scaler": null,
+      "selection_split": "validation",
+      "test_used_for_selection": false,
+      "validation": {
+        "samples": 118,
+        "f1_macro": 0.9424889286958252,
+        "balanced_accuracy": 0.9924242424242425,
+        "log_loss": 0.14006081223487854
+      }
+    },
+    "audio": {
+      "version": "baseline-0.2.0",
+      "artifact": "artifacts/baselines/audio_logistic.joblib",
+      "status": "validated_on_validation",
+      "algorithm": "LogisticRegression",
+      "classes": [
+        0,
+        1,
+        2
+      ],
+      "input_shape": [
+        1536
+      ],
+      "input_features": 1536,
+      "image_size": [
+        16,
+        16
+      ],
+      "normalization": "RGB convert, resize 16x16, float32 / 255.0; aggregate mean/std except frames",
+      "scaler": null,
+      "selection_split": "validation",
+      "test_used_for_selection": false,
+      "validation": {
+        "samples": 118,
+        "f1_macro": 0.8607549483272026,
+        "balanced_accuracy": 0.9440235690235691,
+        "log_loss": 0.400756299495697
+      }
+    },
+    "fusion": {
+      "version": "multimodal-0.1.0",
+      "artifact": "artifacts/multimodal/fusion_model.joblib",
+      "status": "validated_on_validation",
+      "classes": [
+        0,
+        1,
+        2
+      ],
+      "feature_names": [
+        "frames.p_Eliminado",
+        "frames.p_Eliminacion",
+        "frames.p_Victoria",
+        "health.p_Eliminado",
+        "health.p_Eliminacion",
+        "health.p_Victoria",
+        "inventory.p_Eliminado",
+        "inventory.p_Eliminacion",
+        "inventory.p_Victoria",
+        "map.p_Eliminado",
+        "map.p_Eliminacion",
+        "map.p_Victoria",
+        "audio.p_Eliminado",
+        "audio.p_Eliminacion",
+        "audio.p_Victoria",
+        "available.frames",
+        "available.health",
+        "available.inventory",
+        "available.map",
+        "available.audio"
+      ],
+      "required_modality": "frames",
+      "mask_semantics": "1 available, 0 unavailable; missing probability vectors are zeros",
+      "selection_split": "validation",
+      "test_used_for_selection": false,
+      "validation": {
+        "samples": 118,
+        "precision": {
+          "Eliminado": 0.9642857142857143,
+          "Eliminacion": 1.0,
+          "Victoria": 1.0
+        },
+        "recall": {
+          "Eliminado": 1.0,
+          "Eliminacion": 0.9886363636363636,
+          "Victoria": 1.0
+        },
+        "f1": {
+          "Eliminado": 0.9818181818181818,
+          "Eliminacion": 0.9942857142857143,
+          "Victoria": 1.0
+        },
+        "support": {
+          "Eliminado": 27,
+          "Eliminacion": 88,
+          "Victoria": 3
+        },
+        "f1_macro": 0.992034632034632,
+        "f1_weighted": 0.9915782522562184,
+        "balanced_accuracy": 0.9962121212121212,
+        "log_loss": 0.05848058685660362,
+        "confusion_matrix": [
+          [
+            27,
+            0,
+            0
+          ],
+          [
+            1,
+            87,
+            0
+          ],
+          [
+            0,
+            0,
+            3
+          ]
+        ],
+        "mean_latency_ms": 0.0011245762788487394
+      }
+    }
+  },
+  "testUsedForSelection": false
+}

@@ -1,0 +1,94 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+.Python
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Jupyter y salidas generadas
+.ipynb_checkpoints/
+*.nbconvert.ipynb
+resultados_notebook/
+
+# Node/Vite/TypeScript
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Entornos, logs y temporales
+.runtime/
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Credenciales y configuraciones locales
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+
+# Datos originales y multimedia: se conservan en el equipo, no en Git
+**/VIDEOS/
+**/videos/
+**/frames/
+**/audio/
+**/audios/
+**/dataset/
+**/datasets/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.flac
+*.jpg
+*.jpeg
+*.png
+*.webp
+*.bmp
+!frontend/public/assets/**/*.png
+
+# Modelos y artefactos pesados
+*.pt
+*.pth
+*.onnx
+*.safetensors
+*.ckpt
+*.bin
+backend/artifacts/models/
+backend/artifacts/checkpoints/
+
+# Índices generados que pueden contener rutas locales del dataset
+backend/data/manifests/file_manifest.csv
+
+# Evidencias y documentos generados con capturas o rutas locales
+evidencias_pruebas/
+documentacion_final/
+CONTINUAR_PROYECTO.md
+PRUEBAS_MANUALES_FORTNITE.md
