@@ -56,6 +56,9 @@ def test_pipeline_publica_fusion_y_estados_estructurados() -> None:
         pipeline.histories[session_id] = __import__("collections").deque([np.zeros((768, 1360, 3), dtype=np.uint8) for _ in range(6)], maxlen=6)
         pipeline.health_readers[session_id] = __import__("app.preprocessing.structured", fromlist=["HealthShieldReader"]).HealthShieldReader()
         pipeline.inventory_readers[session_id] = __import__("app.preprocessing.structured", fromlist=["InventoryReader"]).InventoryReader()
+        pipeline.last_health_sample[session_id] = 0.0
+        pipeline.states[session_id].health_frames_dropped = 0
+        await pipeline._health_fast(session_id, np.zeros((768, 1360, 3), dtype=np.uint8), __import__("app.capture.windows", fromlist=["WindowInfo"]).WindowInfo(1, "test", 0, 0, 1360, 768), 1.0)
         await pipeline._infer_latest(session_id, __import__("app.capture.windows", fromlist=["WindowInfo"]).WindowInfo(1, "test", 0, 0, 1360, 768))
         event_types = {event[0] for event in events}
         assert "frame_sequence.updated" in event_types

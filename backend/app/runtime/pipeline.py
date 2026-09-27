@@ -26,6 +26,7 @@ class PipelineState:
     status: str = "idle"
     frames_captured: int = 0
     frames_dropped: int = 0
+    health_frames_dropped: int = 0
     last_timestamp: float | None = None
     window: WindowInfo | None = None
 
@@ -63,6 +64,9 @@ class RuntimePipeline:
         self.health_readers: dict[str, HealthShieldReader] = {}
         self.inventory_readers: dict[str, InventoryReader] = {}
         self.health_alert_gates: dict[str, HealthAlertGate] = {}
+        self.health_tasks: dict[str, asyncio.Task[None]] = {}
+        self.health_payloads: dict[str, dict[str, object]] = {}
+        self.last_health_sample: dict[str, float] = {}
 
     async def start(self, session_id: str) -> None:
         await self.stop(session_id)
@@ -73,6 +77,8 @@ class RuntimePipeline:
         self.health_readers[session_id] = HealthShieldReader()
         self.inventory_readers[session_id] = InventoryReader()
         self.health_alert_gates[session_id] = HealthAlertGate()
+        self.last_health_sample[session_id] = 0.0
+        self.health_payloads.pop(session_id, None)
         self.tasks[session_id] = asyncio.create_task(self._capture_loop(session_id), name=f"capture-{session_id}")
 
     async def stop(self, session_id: str) -> None:
@@ -88,11 +94,16 @@ class RuntimePipeline:
         inference_task = self.inference_tasks.pop(session_id, None)
         if inference_task is not None:
             inference_task.cancel()
+        health_task = self.health_tasks.pop(session_id, None)
+        if health_task is not None:
+            health_task.cancel()
         self.histories.pop(session_id, None)
         self.last_sequence_sample.pop(session_id, None)
         self.health_readers.pop(session_id, None)
         self.inventory_readers.pop(session_id, None)
         self.health_alert_gates.pop(session_id, None)
+        self.health_payloads.pop(session_id, None)
+        self.last_health_sample.pop(session_id, None)
 
     async def _emit_status(self, session_id: str, status: str, message: str) -> None:
         state = self.states.setdefault(session_id, PipelineState())
@@ -134,14 +145,23 @@ class RuntimePipeline:
                 state.status = "capturing"
                 state.frames_captured += 1
                 state.frames_dropped = self.buffers[session_id].dropped
-                state.last_timestamp = time.time()
+                captured_at = time.time()
+                state.last_timestamp = captured_at
+                health_interval = 1 / max(1, settings.health_fast_fps)
+                if captured_at - self.last_health_sample[session_id] >= health_interval:
+                    self.last_health_sample[session_id] = captured_at
+                    health_task = self.health_tasks.get(session_id)
+                    if health_task is None or health_task.done():
+                        self.health_tasks[session_id] = asyncio.create_task(self._health_fast(session_id, current.copy(), window, captured_at), name=f"health-fast-{session_id}")
+                    else:
+                        state.health_frames_dropped += 1
                 encoded = io.BytesIO()
                 Image.fromarray(current).save(encoded, format="JPEG", quality=75, optimize=True)
                 image_data = base64.b64encode(encoded.getvalue()).decode("ascii")
                 is_alternative = settings.capture_mode.casefold() == "alternative"
                 await self.publish(session_id, "stream.updated", {"available": True, "image": f"data:image/jpeg;base64,{image_data}", "frameId": state.frames_captured, "resolution": f"{window.width}x{window.height}", "fps": settings.stream_fps, "captureState": "capturing", "framesDropped": state.frames_dropped, "captureMode": "alternative" if is_alternative else "fortnite", "message": "Modo de prueba de captura." if is_alternative else "Captura de Fortnite activa."}, "ready")
-                now = time.time()
-                if now - self.last_sequence_sample[session_id] >= 1.0:
+                now = captured_at
+                if now - self.last_sequence_sample[session_id] >= max(0.25, settings.health_verification_interval_sec):
                     self.last_sequence_sample[session_id] = now
                     self.histories[session_id].append(current.copy())
                     task = self.inference_tasks.get(session_id)
@@ -149,6 +169,23 @@ class RuntimePipeline:
                         self.inference_tasks[session_id] = asyncio.create_task(self._infer_latest(session_id, window), name=f"inference-{session_id}")
             elapsed = time.perf_counter() - started
             await asyncio.sleep(max(0, interval - elapsed))
+
+    async def _health_fast(self, session_id: str, frame, window: WindowInfo, captured_at: float) -> None:
+        started = time.perf_counter()
+        crop = self._crop(frame, window, 0, 489, 552, 768)
+        reader = self.health_readers.get(session_id)
+        if reader is None:
+            return
+        health = await asyncio.to_thread(reader.read, crop, captured_at)
+        gate = self.health_alert_gates.setdefault(session_id, HealthAlertGate())
+        enabled = gate.update(health.get("healthValue"), health.get("shieldValue"), float(health.get("confidence", 0.0)), str(health.get("status", "not_detected")), float(health.get("healthConfidence", 0.0)), float(health.get("shieldConfidence", 0.0)), health_state=health.get("healthReading"), shield_state=health.get("shieldReading"))
+        processed_at = time.time()
+        payload = {**health, "processingMs": round((time.perf_counter() - started) * 1000, 3), "capturedAt": captured_at, "processedAt": processed_at, "healthAlertActive": gate.health_active, "shieldAlertActive": gate.shield_active, "healthFramesDropped": self.states[session_id].health_frames_dropped}
+        self.health_payloads[session_id] = payload
+        await self.publish(session_id, "health_shield.updated", payload, health["status"])
+        if enabled:
+            for recommendation in evaluate(session_id, health.get("healthValue"), health.get("shieldValue"), enabled_alerts=enabled):
+                await self.publish(session_id, "recommendation.updated", recommendation, "ready")
 
     @staticmethod
     def _crop(frame, window: WindowInfo, x0: int, x1: int, y0: int, y1: int):
@@ -178,14 +215,6 @@ class RuntimePipeline:
         predictions["frames"] = await asyncio.to_thread(self.inference.predict, "frames", sequence_feature(history))
         for modality, crop in crops.items():
             predictions[modality] = await asyncio.to_thread(self.inference.predict, modality, crops_feature([crop]))
-        health = self.health_readers[session_id].read(crops["health"])
-        health_prediction = predictions["health"]
-        gate = self.health_alert_gates.setdefault(session_id, HealthAlertGate())
-        health_alerts = gate.update(health.get("healthValue"), health.get("shieldValue"), float(health.get("confidence", 0.0)), str(health.get("status", "not_detected")), float(health.get("healthConfidence", 0.0)), float(health.get("shieldConfidence", 0.0)), health_state=health.get("healthReading"), shield_state=health.get("shieldReading"))
-        health_payload = {**health, "modelVersion": health_prediction.get("modelVersion"), "trend": [], "healthAlertActive": gate.health_active, "shieldAlertActive": gate.shield_active}
-        if health_prediction.get("status") == "ready":
-            health_payload.update({"winProbability": health_prediction["binary"]["winProbability"], "lossProbability": health_prediction["binary"]["lossProbability"], "classProbabilities": health_prediction["classProbabilities"], "predictionConfidence": health_prediction["confidence"], "latencyMs": health_prediction["latencyMs"]})
-        await self.publish(session_id, "health_shield.updated", health_payload, health["status"])
         inventory = self.inventory_readers[session_id].read(crops["inventory"])
         inventory_prediction = predictions["inventory"]
         inventory_payload = {**inventory, "modelVersion": inventory_prediction.get("modelVersion")}
@@ -217,6 +246,6 @@ class RuntimePipeline:
         if fusion.get("status") == "ready":
             probabilities = fusion["classProbabilities"]
             await self.publish(session_id, "main_prediction.updated", {"predictedClass": {"Eliminado": "eliminated", "Eliminacion": "elimination", "Victoria": "victory"}[fusion["predictedClass"]], "eliminatedProbability": probabilities["Eliminado"], "eliminationProbability": probabilities["Eliminacion"], "victoryProbability": probabilities["Victoria"], "confidence": fusion["confidence"], "latencyMs": 0, "modelVersion": fusion["modelVersion"], "participatingModalities": fusion["participatingModalities"], "missingModalities": fusion["missingModalities"]}, "ready")
-            recommendations = evaluate(session_id, health.get("healthValue"), health.get("shieldValue"), enabled_alerts=health_alerts) + evaluate_prediction(session_id, float(probabilities["Eliminado"]), list(fusion["missingModalities"]))
+            recommendations = evaluate_prediction(session_id, float(probabilities["Eliminado"]), list(fusion["missingModalities"]))
             for recommendation in recommendations:
                 await self.publish(session_id, "recommendation.updated", recommendation, "ready")

@@ -22,7 +22,11 @@ export const useDashboardStore = create<DashboardState & DashboardActions>((set)
   reset: () => set({ ...initialState }), toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })), setSessionId: (sessionId) => set({ sessionId }),
   setConnection: (connection) => set({ connection }), setSessionStatus: (sessionStatus) => set({ sessionStatus }),
   setStream: (stream) => set({ stream, lastUpdate: stream.timestamp }), setMainPrediction: (mainPrediction) => set({ mainPrediction, lastUpdate: mainPrediction.timestamp }),
-  setHealthShield: (healthShield) => set({ healthShield, lastUpdate: healthShield.timestamp }), setInventory: (inventory) => set({ inventory, lastUpdate: inventory.timestamp }),
+  setHealthShield: (healthShield) => set((state) => {
+    const previousCapturedAt = state.healthShield?.capturedAt
+    if (previousCapturedAt !== undefined && healthShield.capturedAt !== undefined && healthShield.capturedAt < previousCapturedAt) return state
+    return { healthShield, lastUpdate: healthShield.timestamp }
+  }), setInventory: (inventory) => set({ inventory, lastUpdate: inventory.timestamp }),
   setAudio: (audio) => set({ audio, lastUpdate: audio.timestamp }), setSequence: (sequence) => set({ sequence, lastUpdate: sequence.timestamp }), setMap: (map) => set({ map, lastUpdate: map.timestamp }),
   addAlert: (alert) => set((state) => ({ alerts: [alert, ...state.alerts].slice(0, 5) })), setRecommendations: (recommendations) => set({ recommendations }), addRecommendation: (recommendation) => set((state) => ({ recommendations: [recommendation, ...state.recommendations].slice(0, 10) })),
 }))

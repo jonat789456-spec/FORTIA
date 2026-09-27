@@ -30,6 +30,8 @@ class Settings:
     model_registry: Path = Path(os.getenv("MODEL_REGISTRY", "artifacts/registry.json"))
     capture_fps: int = _int_env("CAPTURE_FPS", 15)
     stream_fps: int = _int_env("STREAM_FPS", 10)
+    health_fast_fps: int = _int_env("HEALTH_FAST_FPS", 5)
+    health_verification_interval_sec: float = _float_env("HEALTH_VERIFICATION_INTERVAL_SEC", 1.0)
     inference_interval_sec: float = _float_env("INFERENCE_INTERVAL_SEC", 1.0)
     capture_window_title: str = os.getenv("CAPTURE_WINDOW_TITLE", "Fortnite")
     capture_window_title_exact: bool = os.getenv("CAPTURE_WINDOW_TITLE_EXACT", "false").casefold() == "true"

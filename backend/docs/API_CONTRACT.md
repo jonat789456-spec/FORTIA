@@ -25,6 +25,8 @@ Eventos principales:
 - `capture.status`: estado, modo (`fortnite` o `alternative`), frames capturados y descartados.
 - `stream.updated`: imagen JPEG, resolución, FPS y `captureMode`.
 - `health_shield.updated`: `healthValue`, `shieldValue`, confianza de lectura,
+  El evento rápido incluye `capturedAt`, `processedAt`, `processingMs` y
+  `healthFramesDropped` para medir frescura y frames descartados.
   región, vigencia y estado. Los valores pueden ser `null`.
 - `inventory.updated`: cinco espacios estructurados, ocupación, rareza,
   categoría opcional, cantidad opcional, confianza y recorte.
