@@ -104,3 +104,46 @@ def test_diagnostico_visual_esta_desactivado_por_defecto_y_es_bajo_demanda() -> 
     debug = reader.read_debug(image)
     assert set(debug["regions"]) == {"health", "shield"}
     assert reader.diagnostics_enabled is False
+
+
+def test_rechaza_icono_azul_aislado_y_no_lo_confunde_con_barra() -> None:
+    image = np.zeros((216, 489, 3), dtype=np.uint8)
+    image[147:174, 47:292] = [10, 220, 10]
+    image[128:143, 420:441] = [10, 120, 220]
+    result = HealthShieldReader().read_debug(image, timestamp=1.0)
+    assert result["reading"]["healthCurrent"] >= 95
+    assert result["reading"]["shieldCurrent"] is None
+    assert result["reading"]["shield"]["status"] == "no_reading"
+    assert result["reading"]["overshield"]["status"] == "not_applicable"
+    assert result["regions"]["shield"]["rejected"]
+
+
+def test_descenso_real_de_escudo_tiene_prioridad_sobre_historial() -> None:
+    def frame(shield_width: int) -> np.ndarray:
+        image = np.zeros((216, 489, 3), dtype=np.uint8)
+        image[128:143, 47:47 + shield_width] = [10, 120, 220]
+        image[147:174, 47:292] = [10, 220, 10]
+        return image
+
+    reader = HealthShieldReader()
+    reader.read(frame(245), timestamp=1.0)
+    reader.read(frame(245), timestamp=1.1)
+    result = reader.read(frame(122), timestamp=1.2)
+    assert 45 <= result["shieldCurrent"] <= 60
+    assert result["shield"]["current"] == result["shieldCurrent"]
+    assert result["shield"]["status"] == "current"
+
+
+def test_valor_conservado_no_se_marca_actual_y_expira_en_cuatro_segundos() -> None:
+    image = np.zeros((216, 489, 3), dtype=np.uint8)
+    image[128:143, 47:292] = [10, 120, 220]
+    image[147:174, 47:292] = [10, 220, 10]
+    reader = HealthShieldReader()
+    reader.read(image, timestamp=10.0)
+    estimated = reader.read(np.zeros_like(image), timestamp=10.5)
+    stable = reader.read(np.zeros_like(image), timestamp=13.0)
+    stale = reader.read(np.zeros_like(image), timestamp=14.1)
+    assert estimated["shield"]["status"] == "estimated"
+    assert stable["shield"]["status"] == "last_stable"
+    assert stale["shieldCurrent"] is None
+    assert stale["shield"]["status"] == "stale"

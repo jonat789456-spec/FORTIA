@@ -182,7 +182,7 @@ class RuntimePipeline:
         health_prediction = predictions["health"]
         gate = self.health_alert_gates.setdefault(session_id, HealthAlertGate())
         health_alerts = gate.update(health.get("healthValue"), health.get("shieldValue"), float(health.get("confidence", 0.0)), str(health.get("status", "not_detected")), float(health.get("healthConfidence", 0.0)), float(health.get("shieldConfidence", 0.0)), health_state=health.get("healthReading"), shield_state=health.get("shieldReading"))
-        health_payload = {**health, "modelVersion": health_prediction.get("modelVersion"), "health": health.get("healthValue"), "shield": health.get("shieldValue"), "trend": [], "healthAlertActive": gate.health_active, "shieldAlertActive": gate.shield_active}
+        health_payload = {**health, "modelVersion": health_prediction.get("modelVersion"), "trend": [], "healthAlertActive": gate.health_active, "shieldAlertActive": gate.shield_active}
         if health_prediction.get("status") == "ready":
             health_payload.update({"winProbability": health_prediction["binary"]["winProbability"], "lossProbability": health_prediction["binary"]["lossProbability"], "classProbabilities": health_prediction["classProbabilities"], "predictionConfidence": health_prediction["confidence"], "latencyMs": health_prediction["latencyMs"]})
         await self.publish(session_id, "health_shield.updated", health_payload, health["status"])

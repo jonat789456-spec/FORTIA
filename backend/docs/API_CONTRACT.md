@@ -36,6 +36,20 @@ Eventos principales:
 
 ## Reglas de validez
 
+El evento `health_shield.updated` mantiene los alias `healthValue` y
+`shieldValue` por compatibilidad, pero los consumidores nuevos deben usar:
+
+```json
+{
+  "health": {"current": 100, "max": 100},
+  "shield": {"current": 47, "max": 100},
+  "overshield": {"current": null, "max": null, "status": "not_applicable"}
+}
+```
+
+`current` y `max` son campos distintos. `estimated`, `last_stable` y `stale`
+incluyen antigüedad; solo `current` representa evidencia del frame actual.
+
 - Las probabilidades solo aparecen con `status=ready` y suman aproximadamente 1.
 - `unavailable`, `low_confidence` y `stale` no se representan como cero.
 - La secuencia temporal es obligatoria para la predicción principal.

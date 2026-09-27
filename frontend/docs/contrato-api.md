@@ -23,6 +23,10 @@ La conexión esperada es /ws/sessions/{sessionId}. Eventos: session.status, stre
 
 ## Predicciones
 
+El evento `health_shield.updated` diferencia `current` y `max` para vida,
+escudo y overshield. El panel, las alertas y la voz consumen el valor
+`current`; `last_stable` nunca se etiqueta como `Actual`.
+
 Las modalidades independientes devuelven winProbability y lossProbability. El modelo principal devuelve eliminatedProbability, eliminationProbability y victoryProbability. La suma esperada del modelo principal es aproximadamente 1.
 
 ## Configuración

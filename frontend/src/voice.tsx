@@ -193,8 +193,8 @@ export class VoiceAssistant {
   private handleHealth(data: DashboardState['healthShield'], previous: DashboardState['healthShield']) {
     const valid = (reading: NonNullable<DashboardState['healthShield']>['healthReading']) => !!reading && ['current', 'estimated'].includes(reading.status) && reading.value != null && reading.confidence >= 0.55
     if (!data || (!valid(data.healthReading) && !valid(data.shieldReading))) return
-    const health = data.healthReading?.value ?? data.healthValue ?? data.health
-    const shield = data.shieldReading?.value ?? data.shieldValue ?? data.shield
+    const health = data.healthReading?.value ?? data.healthValue ?? (typeof data.health === 'object' && data.health ? data.health.current : data.health)
+    const shield = data.shieldReading?.value ?? data.shieldValue ?? (typeof data.shield === 'object' && data.shield ? data.shield.current : data.shield)
     const healthLevel = !valid(data.healthReading) || health == null ? 'unknown' : data.healthAlertActive ? (health < 20 ? 'critical' : 'low') : 'safe'
     const shieldLevel = !valid(data.shieldReading) || shield == null ? 'unknown' : data.shieldAlertActive ? 'low' : 'safe'
     if (healthLevel !== this.lastHealthLevel && (healthLevel === 'critical' || healthLevel === 'low')) this.enqueue({ text: healthLevel === 'critical' ? 'Tu vida está en nivel crítico. Evita un nuevo enfrentamiento.' : 'Tu vida está baja. Busca recuperación y evita exponerte.', priority: healthLevel === 'critical' ? 'critical' : 'high', key: `health-${healthLevel}`, expiresAt: Date.now() + 20000 })
