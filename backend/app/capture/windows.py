@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 
 from ..config import settings
@@ -20,6 +21,9 @@ class CaptureStatus:
     def __init__(self) -> None:
         self.available = False
         self.reason = "Dependencias de captura no verificadas"
+
+
+_capture_local = threading.local()
 
 
 def enumerate_windows(title_filter: str | None = None, process_name: str | None = None, exact: bool | None = None) -> list[WindowInfo]:
@@ -86,11 +90,21 @@ def capture_window(window: WindowInfo):
 
         if window.minimized or window.width <= 0 or window.height <= 0:
             return None
-        with mss.mss() as screen:
-            raw = screen.grab({"left": window.left, "top": window.top, "width": window.width, "height": window.height})
+        screen = getattr(_capture_local, "screen", None)
+        if screen is None:
+            screen = mss.mss()
+            _capture_local.screen = screen
+        raw = screen.grab({"left": window.left, "top": window.top, "width": window.width, "height": window.height})
         # mss entrega BGRA/BGR; el resto del pipeline y Pillow trabajan en RGB.
         return np.asarray(raw)[:, :, :3][:, :, ::-1].copy()
     except (ImportError, OSError):
+        screen = getattr(_capture_local, "screen", None)
+        if screen is not None:
+            try:
+                screen.close()
+            except Exception:
+                pass
+            _capture_local.screen = None
         return None
 
 

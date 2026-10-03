@@ -92,3 +92,20 @@ evidencias_pruebas/
 documentacion_final/
 CONTINUAR_PROYECTO.md
 PRUEBAS_MANUALES_FORTNITE.md
+
+# Despliegue público: datos, reportes y snapshots locales
+backend/data/
+backend/reports/
+backend/artifacts/*
+!backend/artifacts/registry.json
+!backend/artifacts/MODELS.md
+!backend/artifacts/baselines/
+!backend/artifacts/baselines/*.joblib
+!backend/artifacts/multimodal/
+!backend/artifacts/multimodal/*.joblib
+backend/temporal_labeling/tessdata/
+*.joblib
+!backend/artifacts/baselines/*.joblib
+!backend/artifacts/multimodal/*.joblib
+.vercel/
+*.ipynb

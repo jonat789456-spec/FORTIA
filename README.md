@@ -77,6 +77,10 @@ npm.cmd run lint
 npm.cmd run build
 ```
 
+## Despliegue público
+
+La arquitectura web pública y las instrucciones para Vercel, el backend FastAPI, la captura autorizada mediante navegador y las limitaciones de privacidad están documentadas en [DEPLOYMENT_PUBLICO.md](DEPLOYMENT_PUBLICO.md). El backend de producción debe usar `CAPTURE_MODE=web`; no se debe publicar una configuración que intente capturar `127.0.0.1` o una ventana Windows del servidor.
+
 ## Seguridad y archivos excluidos
 
 Git ignora credenciales, `.env`, entornos virtuales, cachés, dependencias instaladas, builds, logs, datos multimedia originales, evidencias generadas y modelos pesados. Estos archivos permanecen intactos en el equipo local.

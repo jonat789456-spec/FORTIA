@@ -34,6 +34,19 @@ def test_health_shield_no_inventa_cero_y_expira_ultimo_valor() -> None:
     assert expired["healthValue"] is None
 
 
+def test_escudo_vacio_se_distingue_de_hud_ausente() -> None:
+    reader = HealthShieldReader()
+    full = np.zeros((216, 489, 3), dtype=np.uint8)
+    full[128:143, 47:292] = [10, 120, 220]
+    full[147:174, 47:292] = [10, 220, 10]
+    reader.read(full, timestamp=1.0)
+    empty_shield = full.copy()
+    empty_shield[128:143, 47:292] = 0
+    result = reader.read(empty_shield, timestamp=1.1)
+    assert result["shieldValue"] == 0
+    assert result["shieldReading"]["status"] == "current"
+
+
 def test_health_shield_conserva_cada_variable_de_forma_independiente() -> None:
     image = np.zeros((216, 489, 3), dtype=np.uint8)
     image[128:143, 47:292] = [10, 120, 220]

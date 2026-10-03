@@ -20,7 +20,9 @@ Se procesan los estados derivados de estos eventos WebSocket existentes:
 - `main_prediction.updated`: clase principal, riesgo de eliminación y cambios de probabilidad.
 - `health_shield.updated`: vida y escudo.
 - `inventory.updated`: recomendaciones del inventario cuando el backend las proporciona.
-- `audio_prediction.updated` y `map.updated`: modalidades no disponibles.
+- `audio_prediction.updated` informa el estado real de WASAPI Loopback; silencio,
+  captura activa, error de dispositivo y modelo no cargado se distinguen por su
+  estado y no se convierten en una modalidad inexistente.
 - `recommendation.updated`: recomendaciones reales del backend.
 - Alertas agregadas al store: prioridad crítica, alta, media o informativa.
 

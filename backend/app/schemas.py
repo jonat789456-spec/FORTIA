@@ -7,7 +7,7 @@ from uuid import uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 
-ModuleStatus = Literal["idle", "waiting", "processing", "ready", "available", "stale", "low_confidence", "not_detected", "not_applicable", "unavailable", "error", "offline", "reconnecting"]
+ModuleStatus = Literal["idle", "waiting", "initializing", "device_search", "capturing", "buffering", "inference", "processing", "ready", "available", "silence", "model_missing", "device_unavailable", "stale", "low_confidence", "not_detected", "not_applicable", "unavailable", "error", "offline", "reconnecting"]
 SessionStatus = Literal["idle", "waiting", "analyzing", "paused", "finished", "offline", "reconnecting"]
 MainClass = Literal["eliminated", "elimination", "victory"]
 
@@ -55,6 +55,7 @@ class SystemStatus(ApiModel):
     gpuAvailable: bool = False
     loadedModels: list[str] = Field(default_factory=list)
     unavailableModels: list[str] = Field(default_factory=list)
+    audioCapture: dict[str, Any] = Field(default_factory=dict)
 
 
 class ModelStatus(ApiModel):

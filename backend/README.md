@@ -17,8 +17,9 @@ El split por video está corregido con exclusión de casos ambiguos y sin fuga.
 Hay cinco baselines entrenados únicamente con `train` y `validation`, con
 registro central y cargadores de inferencia. La API REST, WebSocket y el
 pipeline continuo base están disponibles. La captura Windows es configurable y
-degrada a `unavailable` si Fortnite no está abierto. El audio histórico existe
-solo como espectrograma PNG; la captura de audio crudo aún no está conectada.
+degrada a `unavailable` si Fortnite no está abierto. El audio histórico conserva
+espectrogramas PNG, mientras que el runtime captura audio crudo mediante WASAPI
+Loopback y el artefacto `audio_raw`.
 La evaluación final sobre `test` permanece pendiente y sellada.
 
 Comandos del bloque actual:
@@ -42,8 +43,9 @@ captura`.
 
 Vida/escudo e inventario tienen extracción estructurada conservadora. Los
 valores no detectables se publican como `null` con estado `low_confidence`,
-`stale` o `unavailable`. El audio real continúa no disponible porque los datos
-históricos son espectrogramas PNG y no audio crudo.
+`stale` o `unavailable`. El audio histórico y el audio crudo son rutas distintas:
+el primero conserva espectrogramas PNG y el segundo usa el dispositivo de salida
+WASAPI Loopback.
 
 Desde `backend`:
 
@@ -64,5 +66,26 @@ La API permanece local y expone:
 python tools/audit_data.py
 python tools/validate_labels.py
 ```
+
+## Audio crudo
+
+El pipeline reproducible está en `tools/audio_pipeline.py`:
+
+```powershell
+python tools/audio_pipeline.py audit
+python tools/audio_pipeline.py extract
+python tools/audio_pipeline.py segment --window 3 --hop 1.5
+python tools/train_audio_raw.py
+python tools/diagnose_audio.py --seconds 5
+python tools/diagnose_audio_ws.py
+python tools/diagnose_loopback_capture.py --seconds 8
+```
+
+La extracción requiere `ffmpeg` y `ffprobe`. Los videos originales son solo
+lectura; el audio se guarda en `AUDIO_RAW` como WAV PCM mono de 32 kHz. El
+modelo `audio_raw` se registra como artefacto separado y permanece pendiente
+hasta entrenar y validar con datos reales. La captura en vivo usa
+`soundcard`/WASAPI loopback, procesa ventanas en memoria y no captura el
+micrófono ni guarda sesiones por defecto.
 
 Las fuentes en la unidad `F:` se leen sin modificación. Los reportes derivados están en `reports/audit` y los manifiestos en `data/manifests`.

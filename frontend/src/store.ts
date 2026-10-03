@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { DashboardState, MainPrediction, HealthShieldData, InventoryData, BinaryPrediction, SequenceData, MapData, StreamData, Alert, Recommendation, SessionStatus, ModuleStatus } from './types'
+import { eventManager } from './eventManager'
 
 const LEGACY_MODE_KEYS = ['fortia.data.mode', 'fortia.mode', 'dataMode', 'apiMode']
 for (const key of LEGACY_MODE_KEYS) {
@@ -19,14 +20,22 @@ const initialState: DashboardState = { sessionStatus: 'idle', connection: 'waiti
 export const useDashboardStore = create<DashboardState & DashboardActions>((set) => ({
   ...initialState,
   pause: () => set({ sessionStatus: 'paused' }), resume: () => set({ sessionStatus: 'analyzing' }), finish: () => set({ sessionStatus: 'finished' }),
-  reset: () => set({ ...initialState }), toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })), setSessionId: (sessionId) => set({ sessionId }),
+  reset: () => { eventManager.reset(); set({ ...initialState }) }, toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })), setSessionId: (sessionId) => set((state) => { if (sessionId && sessionId !== state.sessionId) eventManager.reset(); return { sessionId } }),
   setConnection: (connection) => set({ connection }), setSessionStatus: (sessionStatus) => set({ sessionStatus }),
-  setStream: (stream) => set({ stream, lastUpdate: stream.timestamp }), setMainPrediction: (mainPrediction) => set({ mainPrediction, lastUpdate: mainPrediction.timestamp }),
+  setStream: (stream) => set({ stream, lastUpdate: stream.timestamp }), setMainPrediction: (mainPrediction) => set(() => {
+    if (mainPrediction.riskStatus === 'high') eventManager.ingest({ code: 'prediction.eliminated_risk', title: 'Riesgo alto de eliminación', message: 'Riesgo alto de ser eliminado', source: 'multimodal', context: { riskProbability: mainPrediction.riskProbability } }, 'alert')
+    else eventManager.resolve('prediction.eliminated_risk', 'alert')
+    return { mainPrediction, alerts: eventManager.activeAlerts(), lastUpdate: mainPrediction.timestamp }
+  }),
   setHealthShield: (healthShield) => set((state) => {
+    eventManager.syncVitals(healthShield)
     const previousCapturedAt = state.healthShield?.capturedAt
     if (previousCapturedAt !== undefined && healthShield.capturedAt !== undefined && healthShield.capturedAt < previousCapturedAt) return state
-    return { healthShield, lastUpdate: healthShield.timestamp }
-  }), setInventory: (inventory) => set({ inventory, lastUpdate: inventory.timestamp }),
+    return { healthShield, alerts: eventManager.activeAlerts(), lastUpdate: healthShield.timestamp }
+  }), setInventory: (inventory) => set(() => {
+    if (inventory.recommendation) eventManager.ingest({ text: inventory.recommendation, source: 'inventory', context: { explanation: inventory.recommendation } }, 'recommendation')
+    return { inventory, recommendations: eventManager.activeRecommendations(), lastUpdate: inventory.timestamp }
+  }),
   setAudio: (audio) => set({ audio, lastUpdate: audio.timestamp }), setSequence: (sequence) => set({ sequence, lastUpdate: sequence.timestamp }), setMap: (map) => set({ map, lastUpdate: map.timestamp }),
-  addAlert: (alert) => set((state) => ({ alerts: [alert, ...state.alerts].slice(0, 5) })), setRecommendations: (recommendations) => set({ recommendations }), addRecommendation: (recommendation) => set((state) => ({ recommendations: [recommendation, ...state.recommendations].slice(0, 10) })),
+  addAlert: (alert) => set(() => { eventManager.ingest(alert, 'alert'); return { alerts: eventManager.activeAlerts() } }), setRecommendations: (recommendations) => set(() => { for (const item of recommendations) eventManager.ingest(item, 'recommendation'); return { recommendations: eventManager.activeRecommendations() } }), addRecommendation: (recommendation) => set(() => { eventManager.ingest(recommendation, 'recommendation'); return { recommendations: eventManager.activeRecommendations() } }),
 }))

@@ -33,3 +33,31 @@ def test_event_history_conserva_eventos() -> None:
         assert hub.history("session-test")[0]["type"] == "test.event"
 
     asyncio.run(scenario())
+
+
+def test_event_hub_reemplaza_frames_binarios_pendientes() -> None:
+    class FakeWebSocket:
+        def __init__(self) -> None:
+            self.sent = []
+            self.release = asyncio.Event()
+
+        async def send_json(self, payload) -> None:
+            self.sent.append(("json", payload))
+
+        async def send_bytes(self, payload) -> None:
+            self.sent.append(("binary", payload))
+            await self.release.wait()
+
+    async def scenario() -> None:
+        hub = EventHub()
+        websocket = FakeWebSocket()
+        await hub.add("session-test", websocket, role="visual")
+        await hub.publish_binary("session-test", "stream.updated", {"frameId": 1}, b"one")
+        await asyncio.sleep(0)
+        await hub.publish_binary("session-test", "stream.updated", {"frameId": 2}, b"two")
+        await hub.publish_binary("session-test", "stream.updated", {"frameId": 3}, b"three")
+        assert hub.metrics("session-test")["websocketVisualDropped"] >= 1
+        websocket.release.set()
+        await hub.remove("session-test", websocket)
+
+    asyncio.run(scenario())

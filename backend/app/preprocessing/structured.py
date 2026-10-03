@@ -34,6 +34,8 @@ class _TrackState:
     timestamp: float | None = None
     valid_count: int = 0
     history: deque[tuple[float, float]] | None = None
+    pending_value: float | None = None
+    pending_count: int = 0
 
 
 class HealthShieldReader:
@@ -42,15 +44,16 @@ class HealthShieldReader:
     BAR_LEFT = 0.08
     BAR_RIGHT = 0.64
     Y_RANGES = {"shield": (0.50, 0.68), "health": (0.68, 0.90)}
-    CURRENT_MAX_AGE = 0.75
+    CURRENT_MAX_AGE = 0.45
     ESTIMATED_MAX_AGE = 2.0
     LAST_STABLE_MAX_AGE = 4.0
 
-    def __init__(self, ttl_seconds: float = LAST_STABLE_MAX_AGE, history_size: int = 7, diagnostics: bool = False) -> None:
+    def __init__(self, ttl_seconds: float = LAST_STABLE_MAX_AGE, history_size: int = 7, diagnostics: bool = False, current_max_age: float = CURRENT_MAX_AGE) -> None:
         self.ttl_seconds = ttl_seconds
         self.history_size = history_size
         self.tracks = {name: _TrackState(history=deque(maxlen=history_size)) for name in ("health", "shield")}
         self.diagnostics_enabled = diagnostics
+        self.current_max_age = current_max_age
         self._diagnostics: dict[str, dict[str, Any]] = {}
 
     def read_debug(self, crop: Any, timestamp: float | None = None) -> dict[str, Any]:
@@ -68,6 +71,14 @@ class HealthShieldReader:
         except ValueError as exc:
             return self._payload(now, {name: self._fallback(name, now, str(exc)) for name in self.tracks}, "not_detected", str(exc))
         raw = {name: self._detect_bar(image, name) for name in self.tracks}
+        # Una barra vacía real no tiene píxeles de color. Solo se interpreta
+        # como cero cuando la otra barra confirma que el HUD está visible;
+        # una ausencia aislada o un icono fuera del anclaje sigue siendo
+        # desconocida.
+        for name, other in (("health", "shield"), ("shield", "health")):
+            previous_value = self.tracks[name].value
+            if raw[name].value is None and raw[name].reason == "Relleno de barra no localizado" and raw[other].value is not None and previous_value is not None and previous_value >= 80:
+                raw[name] = _BarReading(0.0, 0.72, "bar_empty_context", "Barra vacía confirmada por el HUD vecino")
         readings = {name: self._resolve(name, value, now) for name, value in raw.items()}
         visible = [item for item in readings.values() if item["value"] is not None]
         current = [item for item in visible if item["status"] == "current"]
@@ -81,12 +92,29 @@ class HealthShieldReader:
             median = float(np.median([item[0] for item in values])) if values else raw.value
             # Un salto hacia arriba aislado suele ser una etiqueta/icono azul;
             # una caída puede ser daño real y debe tener prioridad inmediata.
-            if len(values) >= 3 and raw.value > median and raw.value - median > max(25.0, median * 0.35):
-                return self._fallback(name, now, "Lectura aislada rechazada por consistencia temporal", raw)
+            previous = track.value
             values.append((raw.value, raw.confidence))
             track.history = values
             track.raw_value = raw.value
-            track.value = raw.value if len(values) < 3 or raw.value < median else float(np.median([item[0] for item in values]))
+            # Las caídas fuertes deben reflejarse en el siguiente frame. Las
+            # subidas extremas requieren dos observaciones para no convertir
+            # un destello del HUD en 100; los cambios pequeños se filtran.
+            if previous is None:
+                track.value = raw.value
+            elif raw.value <= previous - 3.0:
+                track.value = raw.value
+                track.pending_value = None
+                track.pending_count = 0
+            elif raw.value >= previous + 20.0:
+                if track.pending_value is not None and abs(track.pending_value - raw.value) <= 5.0:
+                    track.pending_count += 1
+                else:
+                    track.pending_value, track.pending_count = raw.value, 1
+                track.value = raw.value if track.pending_count >= 2 else previous
+            else:
+                track.pending_value = None
+                track.pending_count = 0
+                track.value = 0.70 * previous + 0.30 * raw.value
             track.confidence = float(min(raw.confidence, np.median([item[1] for item in values])))
             track.source = raw.method
             track.timestamp = now
@@ -98,7 +126,7 @@ class HealthShieldReader:
     def _fallback(self, name: str, now: float, reason: str, raw: _BarReading | None = None) -> dict[str, Any]:
         track = self.tracks[name]
         if track.value is None or track.timestamp is None:
-            return {"value": None, "rawValue": raw.value if raw else None, "confidence": raw.confidence if raw else 0.0, "quality": "low", "source": raw.method if raw else track.source, "ageMs": None, "status": "no_reading", "reason": reason, "validCount": track.valid_count}
+            return {"value": None, "rawValue": raw.value if raw else None, "confidence": raw.confidence if raw else 0.0, "quality": "low", "source": raw.method if raw else track.source, "ageMs": None, "status": "no_reading", "readingState": "hud_not_visible", "reason": reason, "validCount": track.valid_count}
         age = max(0.0, now - track.timestamp)
         if age <= self.ESTIMATED_MAX_AGE:
             status, quality = "estimated", "medium"
@@ -111,18 +139,32 @@ class HealthShieldReader:
     @staticmethod
     def _reading(track: _TrackState, now: float, status: str, quality: str, reason: str | None, raw: _BarReading | None = None) -> dict[str, Any]:
         age = None if track.timestamp is None else round(max(0.0, now - track.timestamp) * 1000)
-        return {"value": round(float(np.clip(track.value, 0, 100)), 2) if track.value is not None else None, "rawValue": raw.value if raw else track.raw_value, "confidence": round(track.confidence if raw is None else min(track.confidence, raw.confidence), 3), "quality": quality, "source": track.source, "ageMs": age, "status": status, "reason": reason, "validCount": track.valid_count}
+        return {"value": round(float(np.clip(track.value, 0, 100)), 2) if track.value is not None else None, "rawValue": raw.value if raw else track.raw_value, "confidence": round(track.confidence if raw is None else min(track.confidence, raw.confidence), 3), "quality": quality, "source": track.source, "ageMs": age, "status": status, "readingState": {"current": "valid", "estimated": "updating", "last_stable": "last_valid"}.get(status, "read_error"), "reason": reason, "validCount": track.valid_count}
 
     def _detect_bar(self, image: np.ndarray, name: str) -> _BarReading:
         height, width = image.shape[:2]
         if height < 12 or width < 24:
             return _BarReading(None, 0.0, "bar_color_geometry", "ROI demasiado pequeña")
         red, green, blue = image[:, :, 0], image[:, :, 1], image[:, :, 2]
-        saturation = image.max(axis=2) - image.min(axis=2)
+        maximum = image.max(axis=2)
+        minimum = image.min(axis=2)
+        saturation = maximum - minimum
+        # HSV aproximado, sin dependencia de OpenCV en la ruta rápida.
+        safe_delta = np.maximum(saturation, 1.0)
+        hue = np.zeros_like(maximum, dtype=np.float32)
+        red_max = (maximum == red) & (saturation > 0)
+        green_max = (maximum == green) & (saturation > 0)
+        blue_max = (maximum == blue) & (saturation > 0)
+        hue[red_max] = ((green[red_max] - blue[red_max]) / safe_delta[red_max]) % 6.0
+        hue[green_max] = ((blue[green_max] - red[green_max]) / safe_delta[green_max]) + 2.0
+        hue[blue_max] = ((red[blue_max] - green[blue_max]) / safe_delta[blue_max]) + 4.0
+        hue /= 6.0
+        hsv_saturation = saturation / np.maximum(maximum, 1.0)
+        hsv_value = maximum / 255.0
         if name == "health":
-            mask = (green >= 65) & (green > red * 1.12 + 8) & (green > blue * 1.08 + 8) & (saturation >= 28)
+            mask = (hue >= 0.20) & (hue <= 0.48) & (hsv_saturation >= 0.28) & (hsv_value >= 0.22) & (green > red * 1.08 + 5)
         else:
-            mask = (blue >= 65) & (blue > red * 1.12 + 8) & (blue > green * 1.03 + 5) & (saturation >= 28)
+            mask = (hue >= 0.50) & (hue <= 0.78) & (hsv_saturation >= 0.28) & (hsv_value >= 0.22) & (blue > red * 1.08 + 5)
         y0, y1 = int(height * self.Y_RANGES[name][0]), int(height * self.Y_RANGES[name][1])
         x0, x1 = int(width * self.BAR_LEFT), min(width, int(width * self.BAR_RIGHT))
         band_mask = mask[y0:max(y0 + 1, y1), x0:x1]
@@ -148,7 +190,7 @@ class HealthShieldReader:
             if self.diagnostics_enabled: self._diagnostics[name] = {"yRange": [y0, y1], "xRange": [filled_left, filled_right], "value": None, "confidence": 0.0, "rejected": "componente no anclado al inicio de la barra"}
             return _BarReading(None, 0.0, "bar_color_geometry", "Componente cromático aislado fuera del inicio de la barra")
         row_quality = float(np.clip(peak_score / max(1, int((x1 - x0) * 0.25)), 0.0, 1.0)); position = float(np.clip(1.0 - abs(((filled_left + filled_right) / 2 / width) - 0.35), 0.0, 1.0)); confidence = float(np.clip(0.45 * row_quality + 0.40 + 0.15 * position, 0.0, 1.0))
-        if self.diagnostics_enabled: self._diagnostics[name] = {"yRange": [y0, y1], "xRange": [filled_left, total_right], "filledBounds": [filled_left, filled_right], "value": round(value, 2), "confidence": round(confidence, 3)}
+        if self.diagnostics_enabled: self._diagnostics[name] = {"normalizedROI": {"left": self.BAR_LEFT, "right": self.BAR_RIGHT, "top": self.Y_RANGES[name][0], "bottom": self.Y_RANGES[name][1]}, "imageShape": [height, width], "yRange": [y0, y1], "xRange": [filled_left, total_right], "filledBounds": [filled_left, filled_right], "maskPixels": int(band_mask.sum()), "value": round(value, 2), "confidence": round(confidence, 3), "method": "hsv_bar_geometry"}
         return _BarReading(round(value, 2), confidence, "bar_color_geometry")
 
     def _payload(self, now: float, readings: dict[str, dict[str, Any]], status: str, reason: str | None) -> dict[str, Any]:

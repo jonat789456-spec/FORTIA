@@ -43,6 +43,31 @@ def test_buffer_conserva_objetos_de_captura() -> None:
     asyncio.run(scenario())
 
 
+def test_inventario_publica_region_completa_y_conserva_slots_sin_iconos() -> None:
+    async def scenario() -> None:
+        events = []
+
+        async def publish(session_id, event_type, data, status):
+            events.append((event_type, data, status))
+
+        pipeline = RuntimePipeline(publish)
+        session_id = "test-inventory-image"
+        pipeline.states[session_id] = PipelineState(status="capturing")
+        pipeline.histories[session_id] = __import__("collections").deque([np.zeros((768, 1360, 3), dtype=np.uint8) for _ in range(6)], maxlen=6)
+        pipeline.inventory_readers[session_id] = __import__("app.preprocessing.structured", fromlist=["InventoryReader"]).InventoryReader()
+        await pipeline._infer_latest(session_id, __import__("app.capture.windows", fromlist=["WindowInfo"]).WindowInfo(1, "test", 0, 0, 1360, 768))
+        inventory = next(data for event, data, _ in events if event == "inventory.updated")
+        assert inventory["image"].startswith("data:image/jpeg;base64,")
+        assert inventory["inventoryImage"] == inventory["image"]
+        assert len(inventory["items"]) == 5
+        assert all("icon" not in item for item in inventory["items"])
+        assert set(inventory["classProbabilities"]) == {"Eliminado", "Eliminacion", "Victoria"}
+        assert inventory["predictedClass"] in {"Eliminado", "Eliminacion", "Victoria"}
+        assert 0 <= inventory["confidence"] <= 1
+
+    asyncio.run(scenario())
+
+
 def test_pipeline_publica_fusion_y_estados_estructurados() -> None:
     async def scenario() -> None:
         events = []

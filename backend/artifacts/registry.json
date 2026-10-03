@@ -147,6 +147,30 @@
         "log_loss": 0.400756299495697
       }
     },
+    "audio_raw": {
+      "version": "audio-raw-0.1.0",
+      "artifact": "artifacts/audio_raw/audio_raw_logistic.joblib",
+      "status": "validated_on_validation",
+      "algorithm": "RawAudioClassifier(LogisticRegression)",
+      "classes": [0, 1, 2],
+      "input": "waveform",
+      "sample_rate": 32000,
+      "window_sec": 3.0,
+      "hop_sec": 1.0,
+      "normalization": "mono PCM float32, DC removal and controlled peak handling in memory",
+      "selection_split": "validation",
+      "test_used_for_selection": false,
+      "privacy": "loopback in memory; no default persistence",
+      "validation": {
+        "samples": 1327,
+        "accuracy": 0.7889977392614921,
+        "balanced_accuracy": 0.4104537670823348,
+        "f1_macro": 0.4231508904576626,
+        "f1_weighted": 0.7613577523217838,
+        "log_loss": 1.5308706760406494,
+        "selection_note": "segment metrics; model selection used validation only"
+      }
+    },
     "fusion": {
       "version": "multimodal-0.1.0",
       "artifact": "artifacts/multimodal/fusion_model.joblib",

@@ -66,8 +66,8 @@
   `stale` o `unavailable` sin convertir ausencia en cero.
 - Inventario: `InventoryReader` devuelve cinco espacios, ocupación, rareza
   aproximada, confianza y recorte; no inventa nombres de objetos.
-- Audio: continúa experimental con espectrogramas PNG; el modo real permanece
-  `unavailable` sin audio crudo compatible.
+- Audio: el runtime usa `soundcard` sobre WASAPI Loopback, con búfer deslizante,
+  diagnóstico WAV, modelo `audio_raw` y estados separados para silencio y error.
 - Fusión multimodal: se compararon promedio ponderado, regresión logística y
   Gradient Boosting usando exclusivamente `train` y `validation`.
 - Modelo seleccionado: `multimodal-0.1.0`, regresión logística; F1 macro de

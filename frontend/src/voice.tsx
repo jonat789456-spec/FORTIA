@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Pause, Play, Settings2, Volume2, VolumeX, X } from 'lucide-react'
 import { useDashboardStore } from './store'
 import type { DashboardState, MainClass } from './types'
+import { eventManager } from './eventManager'
+import { EVENT_RUNTIME_CONFIG } from './eventConfig'
 
 export type VoiceMode = 'critical' | 'alerts' | 'full'
 export type VoicePriority = 'critical' | 'high' | 'medium' | 'low'
@@ -30,7 +32,7 @@ export interface VoiceViewState {
 }
 
 const STORAGE_KEY = 'fortia.voice.settings'
-const DEFAULT_SETTINGS: VoiceSettings = { enabled: false, volume: 0.7, rate: 1, pitch: 1, mode: 'alerts', normalCooldownMs: 8000, criticalCooldownMs: 4000, duplicateWindowMs: 30000, probabilityDelta: 0.1, maxMessagesPerMinute: 6, voiceName: '' }
+const DEFAULT_SETTINGS: VoiceSettings = { enabled: false, volume: 0.7, rate: 1, pitch: 1, mode: 'alerts', ...EVENT_RUNTIME_CONFIG.voiceDefaults, probabilityDelta: 0.1, voiceName: '' }
 const classLabels: Record<MainClass, string> = { eliminated: 'Eliminado', elimination: 'Eliminación', victory: 'Victoria' }
 
 function loadSettings(): VoiceSettings {
@@ -47,6 +49,8 @@ function saveSettings(settings: VoiceSettings) {
 
 function percentage(value: number) { return Math.round(Math.max(0, Math.min(1, value)) * 100) }
 function riskLevel(value: number) { return value >= 0.8 ? 'critical' : value >= 0.6 ? 'high' : value >= 0.4 ? 'medium' : 'low' }
+// La narración de riesgo ahora la genera EventManager; se conserva para compatibilidad.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function riskText(value: number) {
   const level = riskLevel(value)
   if (level === 'critical') return 'Riesgo crítico de eliminación. Busca cobertura inmediatamente.'
@@ -68,6 +72,7 @@ export class VoiceAssistant {
   private recent = new Map<string, number>()
   private spokenAt: number[] = []
   private speaking = false
+  private currentPriority: VoicePriority | null = null
   private currentMessage = ''
   private previousState: DashboardState | null = null
   private candidateClass: MainClass | null = null
@@ -109,7 +114,7 @@ export class VoiceAssistant {
   }
 
   test() { this.enqueue({ text: 'Asistente de voz de FORTIA activado. Las alertas importantes se comunicarán en español.', priority: 'high', key: `voice-test-${Date.now()}`, expiresAt: Date.now() + 15000 }) }
-  stop() { if (this.supported) window.speechSynthesis.cancel(); this.queue = []; this.speaking = false; this.currentMessage = ''; this.publish() }
+  stop() { if (this.supported) window.speechSynthesis.cancel(); this.queue = []; this.speaking = false; this.currentPriority = null; this.currentMessage = ''; this.publish() }
   dispose() { this.stop(); if (this.supported) window.speechSynthesis.removeEventListener('voiceschanged', this.onVoicesChanged) }
 
   private allowed(priority: VoicePriority) {
@@ -127,9 +132,18 @@ export class VoiceAssistant {
     if (!isCritical(input.priority) && this.spokenAt.length >= this.settings.maxMessagesPerMinute) return
     this.recent.set(input.key, now)
     const message: VoiceMessage = { ...input, createdAt: now, expiresAt: input.expiresAt ?? now + 30000 }
+    if (isCritical(input.priority) && this.speaking && this.currentPriority !== 'critical') {
+      window.speechSynthesis.cancel()
+      this.speaking = false
+      this.currentPriority = null
+      this.currentMessage = ''
+      eventManager.recordVoicePlayback('speech_interrupted', { message: this.currentMessage })
+      window.dispatchEvent(new CustomEvent('fortia-tts', { detail: { active: false } }))
+    }
     if (isCritical(input.priority)) this.queue = this.queue.filter((item) => isCritical(item.priority))
     this.queue.push(message)
     this.queue.sort((a, b) => ({ critical: 0, high: 1, medium: 2, low: 3 }[a.priority] - ({ critical: 0, high: 1, medium: 2, low: 3 }[b.priority]) || a.createdAt - b.createdAt))
+    if (this.queue.length > EVENT_RUNTIME_CONFIG.maxPendingSpeech) this.queue = this.queue.slice(0, EVENT_RUNTIME_CONFIG.maxPendingSpeech)
     this.processQueue()
   }
 
@@ -148,25 +162,29 @@ export class VoiceAssistant {
     utterance.volume = this.settings.volume
     utterance.rate = this.settings.rate
     utterance.pitch = this.settings.pitch
-    this.speaking = true; this.currentMessage = next.text; this.spokenAt.push(Date.now()); this.publish()
-    utterance.onend = () => { this.speaking = false; this.currentMessage = ''; this.publish(); this.processQueue() }
-    utterance.onerror = () => { this.speaking = false; this.currentMessage = ''; this.publish(); this.processQueue() }
+    this.speaking = true; this.currentPriority = next.priority; this.currentMessage = next.text; eventManager.recordVoicePlayback('speech_start', { semanticKey: next.key, message: next.text }); this.spokenAt.push(Date.now()); window.dispatchEvent(new CustomEvent('fortia-tts', { detail: { active: true } })); this.publish()
+    utterance.onend = () => { eventManager.recordVoicePlayback('speech_end', { semanticKey: next.key, message: next.text }); this.speaking = false; this.currentPriority = null; this.currentMessage = ''; window.dispatchEvent(new CustomEvent('fortia-tts', { detail: { active: false } })); this.publish(); this.processQueue() }
+    utterance.onerror = () => { eventManager.recordVoicePlayback('speech_end', { semanticKey: next.key, message: next.text }); this.speaking = false; this.currentPriority = null; this.currentMessage = ''; window.dispatchEvent(new CustomEvent('fortia-tts', { detail: { active: false } })); this.publish(); this.processQueue() }
     window.speechSynthesis.speak(utterance)
   }
 
   handleState(next: DashboardState, previous: DashboardState | null = this.previousState) {
     this.previousState = next
+    this.handleManagedEvents()
     if (!previous) return
     if (next.connection === 'ready' && ['offline', 'reconnecting', 'error'].includes(previous.connection)) this.enqueue({ text: 'Conexión recuperada. El análisis continúa.', priority: 'high', key: 'connection-recovered', expiresAt: Date.now() + 15000 })
     if (['offline', 'reconnecting', 'error'].includes(next.connection) && !['offline', 'reconnecting', 'error'].includes(previous.connection)) this.enqueue({ text: 'Se perdió la conexión con el servidor. Intentando reconectar.', priority: 'high', key: 'connection-lost', expiresAt: Date.now() + 15000 })
     if (next.sessionStatus === 'analyzing' && previous.sessionStatus !== 'analyzing') this.enqueue({ text: 'FORTIA fue detectado. El análisis en tiempo real ha comenzado.', priority: 'medium', key: 'analysis-started', expiresAt: Date.now() + 15000 })
     this.handleCapture(next)
     this.handlePrediction(next.mainPrediction, previous.mainPrediction)
-    this.handleHealth(next.healthShield, previous.healthShield)
-    this.handleInventory(next.inventory)
     this.handleModalities(next)
-    this.handleAlerts(next)
-    this.handleRecommendations(next)
+  }
+
+  private handleManagedEvents() {
+    if (!this.supported || !this.settings.enabled) return
+    for (const event of eventManager.takeSpeechEvents()) {
+      this.enqueue({ text: event.spokenMessage, priority: event.severity, key: `managed-${event.semanticKey}-${event.id}`, expiresAt: Date.now() + Math.max(10000, event.cooldownMs) })
+    }
   }
 
   private handleCapture(state: DashboardState) {
@@ -182,12 +200,8 @@ export class VoiceAssistant {
     const previousMargin = previous?.predictedClass === 'eliminated' ? previous.eliminatedProbability : previous?.predictedClass === 'elimination' ? previous.eliminationProbability : previous?.victoryProbability
     const firstAnnouncement = this.announcedClass === null
     if (this.candidateCount >= 3 && this.announcedClass !== data.predictedClass && (firstAnnouncement || !previous || margin - (previousMargin ?? 0) >= 0.08)) { this.announcedClass = data.predictedClass; this.enqueue({ text: `${firstAnnouncement ? 'La predicción principal es' : 'La predicción principal cambió a'} ${classLabels[data.predictedClass]}, con una confianza del ${percentage(data.confidence)} por ciento.`, priority: 'high', key: `class-${data.predictedClass}`, expiresAt: Date.now() + 20000 }) }
-    const risk = data.eliminatedProbability
-    const level = riskLevel(risk)
-    if (this.lastRisk === null || (level !== this.lastRisk && (level === 'critical' || level === 'high' || this.lastRisk === 'critical' || Math.abs(risk - (previous?.eliminatedProbability ?? risk)) >= this.settings.probabilityDelta))) { this.enqueue({ text: riskText(risk), priority: level === 'critical' ? 'critical' : level === 'high' ? 'high' : 'medium', key: `risk-${level}`, expiresAt: Date.now() + 20000 }) }
     if (previous && Math.abs(data.eliminationProbability - previous.eliminationProbability) >= this.settings.probabilityDelta) this.enqueue({ text: `La probabilidad de conseguir una eliminación ${data.eliminationProbability > previous.eliminationProbability ? 'aumentó' : 'disminuyó'} al ${percentage(data.eliminationProbability)} por ciento.`, priority: 'medium', key: `elimination-prob-${Math.round(data.eliminationProbability * 10)}`, expiresAt: Date.now() + 20000 })
     if (previous && Math.abs(data.victoryProbability - previous.victoryProbability) >= this.settings.probabilityDelta) this.enqueue({ text: `La probabilidad de victoria ${data.victoryProbability > previous.victoryProbability ? 'aumentó' : 'disminuyó'} al ${percentage(data.victoryProbability)} por ciento.`, priority: 'medium', key: `victory-prob-${Math.round(data.victoryProbability * 10)}`, expiresAt: Date.now() + 20000 })
-    this.lastRisk = level
   }
 
   private handleHealth(data: DashboardState['healthShield'], previous: DashboardState['healthShield']) {
@@ -215,8 +229,9 @@ export class VoiceAssistant {
     this.enqueue({ text: `El inventario actual indica lo siguiente: ${data.recommendation}`, priority: 'medium', key: `inventory-${data.recommendation}`, expiresAt: Date.now() + 30000 })
   }
 
-  private handleAlerts(state: DashboardState) { for (const alert of state.alerts) if (!this.seenAlerts.has(alert.id)) { this.seenAlerts.add(alert.id); this.enqueue({ text: `${alert.title}. ${alert.message}`, priority: alert.severity === 'critical' ? 'critical' : alert.severity === 'warning' ? 'high' : 'medium', key: `alert-${alert.id}`, expiresAt: Date.now() + 30000 }) } }
-  private handleRecommendations(state: DashboardState) { for (const item of state.recommendations) if (!this.seenRecommendations.has(item.id)) { this.seenRecommendations.add(item.id); this.enqueue({ text: item.text + (item.explanation ? `. ${item.explanation}` : ''), priority: item.priority === 'alta' ? 'high' : item.priority === 'media' ? 'medium' : 'low', key: `recommendation-${item.id}`, expiresAt: Date.now() + 30000 }) } }
+  // Alertas y recomendaciones llegan exclusivamente desde EventManager.
+  private handleAlerts() { /* compatibilidad con sesiones antiguas */ }
+  private handleRecommendations() { /* compatibilidad con sesiones antiguas */ }
 }
 
 export function useVoiceAssistant() {

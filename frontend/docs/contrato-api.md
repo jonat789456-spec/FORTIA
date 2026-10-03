@@ -21,6 +21,13 @@ Cada evento puede incluir sessionId, predictionId, timestamp, source, status, mo
 
 La conexión esperada es /ws/sessions/{sessionId}. Eventos: session.status, stream.updated, health_shield.updated, inventory.updated, audio_prediction.updated, frame_sequence.updated, map.updated, main_prediction.updated, alert.created, recommendation.created y model.status.
 
+`stream.updated` transporta el JPEG como mensaje binario con una cabecera JSON terminada en salto de línea; el frontend crea y revoca un `ObjectURL` por frame. En fallback de pruebas se conserva Base64. El evento se produce desde una ranura de último frame independiente de las inferencias e incluye `captureFps`, `streamFps`, `captureMs`, `resizeMs`, `encodeMs`, `imageBytes`, `capturedAt`, `encodedAt`, `latencyMs`, `sendMs`, `resolutionSource` y `framesDropped`. El frontend actualiza el elemento visual mediante `requestAnimationFrame` y limita las actualizaciones del resto de la interfaz.
+
+`inventory.updated` contiene una sola imagen JPEG horizontal en `image` para la
+presentación, mientras `items` conserva los cinco resultados estructurados del
+lector interno. `imageIsStale` e `imageAgeMs` identifican una imagen válida
+retenida temporalmente durante una lectura no confiable.
+
 ## Predicciones
 
 El evento `health_shield.updated` diferencia `current` y `max` para vida,
