@@ -13,6 +13,7 @@ COPY app ./app
 COPY config ./config
 COPY artifacts/registry.json ./artifacts/registry.json
 COPY artifacts/baselines ./artifacts/baselines
+COPY artifacts/audio_raw ./artifacts/audio_raw
 COPY artifacts/multimodal ./artifacts/multimodal
 
 EXPOSE 8000
