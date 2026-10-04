@@ -107,6 +107,8 @@ backend/artifacts/*
 !backend/artifacts/baselines/*.joblib
 !backend/artifacts/multimodal/
 !backend/artifacts/multimodal/*.joblib
+!backend/artifacts/audio_raw/
+!backend/artifacts/audio_raw/*.joblib
 backend/temporal_labeling/tessdata/
 *.joblib
 !backend/artifacts/baselines/*.joblib
