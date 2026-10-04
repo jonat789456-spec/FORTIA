@@ -4,7 +4,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     CAPTURE_MODE=web \
     HOST=0.0.0.0 \
-    PORT=8000
+    PORT=8000 \
+    FRONTEND_ORIGIN=https://fortia-nu.vercel.app \
+    FRONTEND_ORIGINS=https://fortia-nu.vercel.app
 
 WORKDIR /app
 COPY requirements/base.txt ./requirements/base.txt
