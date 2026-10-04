@@ -14,27 +14,62 @@ function requestBrowserCapture(): Promise<MediaStream> {
   return navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 5, max: 10 }, width: { ideal: 1280, max: 1280 } }, audio: false })
 }
 
-function startBrowserFrameLoop(stream: MediaStream, send: (frame: Blob) => Promise<unknown>, onStopped: () => void): () => void {
+function startBrowserFrameLoop(stream: MediaStream, send: (frame: Blob) => Promise<unknown>, onStopped: () => void, onError: (message: string) => void = (message) => { window.dispatchEvent(new CustomEvent('fortia-capture-error', { detail: message })) }): () => void {
   const video = document.createElement('video')
   const canvas = document.createElement('canvas')
   const context = canvas.getContext('2d', { alpha: false })
   let timer: number | undefined
   let stopped = false
   let sending = false
-  const stop = () => { stopped = true; if (timer !== undefined) window.clearTimeout(timer); stream.getTracks().forEach((track) => track.stop()); video.srcObject = null }
-  const tick = () => {
+  let loopStarted = false
+  let lastSentAt = 0
+  const intervalMs = 200
+  const schedule = (delay = intervalMs) => { if (!stopped) timer = window.setTimeout(capture, delay) }
+  const stop = () => {
     if (stopped) return
-    if (!sending && context && video.videoWidth > 0 && video.videoHeight > 0) {
-      const scale = Math.min(1, 1280 / video.videoWidth)
-      canvas.width = Math.max(1, Math.round(video.videoWidth * scale)); canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
-      context.drawImage(video, 0, 0, canvas.width, canvas.height)
-      canvas.toBlob((blob) => { if (!blob || stopped) return; sending = true; void send(blob).catch(() => undefined).finally(() => { sending = false }) }, 'image/jpeg', 0.72)
-    }
-    timer = window.setTimeout(tick, 250)
+    stopped = true
+    if (timer !== undefined) window.clearTimeout(timer)
+    video.onloadedmetadata = null
+    video.onplaying = null
+    video.onpause = null
+    video.onended = null
+    video.srcObject = null
+    stream.getTracks().forEach((track) => track.stop())
   }
-  stream.getVideoTracks().forEach((track) => { track.addEventListener('ended', () => { if (!stopped) { stop(); onStopped() } }) })
-  video.muted = true; video.playsInline = true; video.srcObject = stream
-  void video.play().then(tick).catch(() => onStopped())
+  const capture = () => {
+    if (stopped) return
+    if (sending || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || video.videoWidth <= 0 || video.videoHeight <= 0) { schedule(100); return }
+    const now = performance.now()
+    if (now - lastSentAt < intervalMs) { schedule(intervalMs - (now - lastSentAt)); return }
+    const scale = Math.min(1, 1280 / video.videoWidth)
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale))
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale))
+    context?.drawImage(video, 0, 0, canvas.width, canvas.height)
+    if (!context) { onError('El navegador no pudo crear el canvas de captura.'); schedule(500); return }
+    canvas.toBlob((blob) => {
+      if (stopped) return
+      if (!blob) { onError('No se pudo comprimir el frame de captura.'); schedule(500); return }
+      sending = true
+      lastSentAt = performance.now()
+      void send(blob).catch(() => {
+        onError('No se pudo enviar un frame; reintentando la captura.')
+      }).finally(() => { sending = false; schedule() })
+    }, 'image/jpeg', 0.72)
+  }
+  const startLoop = () => { if (!loopStarted && !stopped) { loopStarted = true; capture() } }
+  const resumeVideo = () => { if (!stopped && video.paused) void video.play().then(startLoop).catch(() => onError('El video de captura no pudo continuar reproduciéndose.')) }
+  const handleEnded = () => { if (!stopped) { stop(); onStopped() } }
+  stream.getVideoTracks().forEach((track) => track.addEventListener('ended', handleEnded, { once: true }))
+  video.muted = true
+  video.playsInline = true
+  video.autoplay = true
+  video.preload = 'auto'
+  video.onloadedmetadata = () => { void video.play().then(startLoop).catch(() => onError('El video de captura no pudo iniciar.')) }
+  video.onplaying = startLoop
+  video.onpause = () => { if (!stopped && stream.active) resumeVideo() }
+  video.onended = handleEnded
+  video.srcObject = stream
+  void video.play().then(startLoop).catch(() => { if (video.readyState !== HTMLMediaElement.HAVE_NOTHING) onError('El navegador bloqueó la reproducción de la captura compartida.') })
   return stop
 }
 
@@ -73,6 +108,14 @@ export default function App() {
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void checkApi(); return () => apiCleanup.current?.() }, [])
+  useEffect(() => {
+    const handleCaptureError = (event: Event) => {
+      const message = (event as CustomEvent<string>).detail
+      if (typeof message === 'string' && state.sessionStatus === 'analyzing') setConnectionError(message)
+    }
+    window.addEventListener('fortia-capture-error', handleCaptureError)
+    return () => window.removeEventListener('fortia-capture-error', handleCaptureError)
+  }, [state.sessionStatus])
 
   async function start() {
     setConnectionError(null)
