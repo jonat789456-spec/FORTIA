@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import App from '../App'
+import { ProbabilityBar } from '../components'
 
 describe('dashboard principal', () => {
   it('muestra identidad, API en tiempo real y áreas esenciales', () => {
@@ -13,5 +14,11 @@ describe('dashboard principal', () => {
     expect(screen.queryByText('Cambiar a API')).not.toBeInTheDocument()
     expect(screen.getByText('Vista de la partida')).toBeInTheDocument()
     expect(screen.getByText('Secuencia de seis frames')).toBeInTheDocument()
+    expect(screen.getByText('Predicción multimodal')).toBeInTheDocument()
+    expect(screen.getByText(/Última actualización:/)).toBeInTheDocument()
+    expect(screen.getByText('SEÑALES DE ANÁLISIS')).toBeInTheDocument()
+    expect(screen.getByText('Recomendaciones')).toBeInTheDocument()
+    render(<ProbabilityBar label='Eliminación' value={0.5} color='currentColor' />)
+    expect(screen.getByLabelText('Probabilidad de eliminación')).toBeInTheDocument()
   })
 })
