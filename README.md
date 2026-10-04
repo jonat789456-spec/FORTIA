@@ -42,9 +42,7 @@ Los archivos `.env` reales están ignorados por Git.
 
 ## Ubicación de los datos
 
-Por defecto, el backend espera los datos originales fuera del repositorio, en:
-
-`F:\Cursos\Ciencia de Datos\Modulo 5\CODIGOS\Proyecto Fotnite`
+Por defecto, el backend usa rutas relativas para datos locales fuera del despliegue público. Configura `DATA_VIDEOS_ROOT`, `DATA_DF_ROOT` y `AUDIO_RAW_ROOT` solo en tu entorno local.
 
 Las rutas configurables se encuentran en `backend/.env.example`. Las carpetas `VIDEOS`, `VIDA`, `ORIGINAL`, `DF`, frames, audios y videos no se eliminan del equipo y no se publican en Git.
 
