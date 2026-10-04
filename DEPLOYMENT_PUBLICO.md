@@ -64,6 +64,17 @@ El backend no debe apuntar a `127.0.0.1` en producción. Necesita un servicio qu
 
 FORTIA no guarda video ni audio por defecto. Procesa temporalmente frames JPEG reducidos; no envía 60 FPS y descarta frames antiguos si el backend se retrasa. Las predicciones son una ayuda y no garantizan el resultado de una partida.
 
+## Estado verificado (2026-10-04)
+
+- Frontend Preview publico: https://fortia-nu.vercel.app
+- Backend Preview HTTPS: https://fortia-api-nu.vercel.app
+- Health check: https://fortia-api-nu.vercel.app/healthz
+- `CAPTURE_MODE=web`, CORS restringido al frontend y los siete modelos activos cargan correctamente.
+- Se verifico CORS, creacion de sesion y aceptacion de un frame JPEG comprimido.
+- Estado: `FRONTEND PUBLICO, BACKEND LIMITADO POR VERCEL`.
+
+Vercel Functions no conserva de forma fiable el estado de las sesiones, tareas de inferencia y colas entre solicitudes. En la prueba real, el primer frame fue aceptado, pero una solicitud posterior recibio `Sesion no encontrada`; por ello no se publica produccion ni se declara una inferencia completa. El backend necesita un servicio ASGI persistente con FastAPI, WebSockets, CPU/memoria para los modelos y proceso de larga duracion.
+
 ## Limitaciones conocidas
 
 - La captura web requiere HTTPS, excepto en `localhost`.
