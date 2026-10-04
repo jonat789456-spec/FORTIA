@@ -57,6 +57,8 @@ secrets*.json
 **/frames/
 **/audio/
 **/audios/
+!backend/app/audio/
+!backend/app/audio/*.py
 **/dataset/
 **/datasets/
 *.mp4
